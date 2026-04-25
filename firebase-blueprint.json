@@ -1,0 +1,227 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "numericId": { "type": "integer" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "fullName": { "type": "string" },
+        "ingameName": { "type": "string" },
+        "preferredGame": { "type": "string", "enum": ["freefire", "bgmi"] },
+        "favoriteGame": { "type": "string" },
+        "role": { "type": "string" },
+        "recentMatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "result": { "type": "string" },
+              "kills": { "type": "number" },
+              "damage": { "type": "string" },
+              "date": { "type": "string" }
+            }
+          }
+        },
+        "age": { "type": "number" },
+        "experience": { "type": "string" },
+        "profileCompleted": { "type": "boolean" },
+        "onboardingStep": { "type": "integer" },
+        "bio": { "type": "string" },
+        "avatar": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "coins": { "type": "number" },
+        "pinkDiamonds": { "type": "number" },
+        "blueDiamonds": { "type": "number" },
+        "playerStatus": { "type": "string", "enum": ["available", "in-team", "busy"] },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "kdRatio": { "type": "number" },
+            "kills": { "type": "number" },
+            "matchesPlayed": { "type": "number" },
+            "wins": { "type": "number" }
+          }
+        },
+        "lastStatsUpdatedAt": { "type": "string", "format": "date-time" },
+        "lastUpdatedBy": { "type": "string" },
+        "matches": { "type": "number" },
+        "wins": { "type": "number" },
+        "kdRatio": { "type": "number" },
+        "headshotPercentage": { "type": "number" },
+        "isBanned": { "type": "boolean" },
+        "isRestricted": { "type": "boolean" },
+        "email": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "fullName", "ingameName", "preferredGame", "age"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized admin users",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Esports team details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logo": { "type": "string" },
+        "game": { "type": "string", "enum": ["freefire", "bgmi"] },
+        "leaderId": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "game", "leaderId"]
+    },
+    "Membership": {
+      "title": "Membership",
+      "description": "User membership in a team",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "role": { "type": "string", "enum": ["leader", "member"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "teamId", "role"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User report for abusive behavior",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "reportedId": { "type": "string" },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterId", "reportedId", "reasons", "timestamp"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Esports tournament details",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "prizePool": { "type": "number" },
+        "entryFee": { "type": "number" },
+        "perKill": { "type": "number" },
+        "matchType": { "type": "string", "enum": ["Solo", "Duo", "Squad"] },
+        "map": { "type": "string" },
+        "descriptionShort": { "type": "string" },
+        "descriptionFull": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "maxPlayers": { "type": "number" },
+        "currentPlayers": { "type": "number" },
+        "totalSlots": { "type": "number" },
+        "filledSlots": { "type": "number" },
+        "players": { "type": "array", "items": { "type": "string" } },
+        "game": { "type": "string", "enum": ["freefire", "bgmi"] },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "prizePool", "entryFee", "matchType", "map", "startTime", "maxPlayers", "game"]
+    },
+    "TournamentParticipant": {
+      "title": "TournamentParticipant",
+      "description": "Details of a user participating in a tournament",
+      "type": "object",
+      "properties": {
+        "tournamentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "inGameName": { "type": "string" },
+        "level": { "type": "number" },
+        "uid": { "type": "string" },
+        "entryFeePaid": { "type": "number" },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tournamentId", "userId", "inGameName", "level", "uid", "joinedAt"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "User following a team",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "followedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "teamId", "followedAt"]
+    },
+    "UsernameClaim": {
+      "title": "UsernameClaim",
+      "description": "Claimed username for uniqueness check",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "claimedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "claimedAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "App versioning and maintenance settings",
+      "type": "object",
+      "properties": {
+        "latestVersionCode": { "type": "number" },
+        "latestVersionName": { "type": "string" },
+        "updateUrl": { "type": "string" },
+        "isUpdateMandatory": { "type": "boolean" },
+        "maintenanceMode": { "type": "boolean" }
+      },
+      "required": ["latestVersionCode", "latestVersionName", "updateUrl"]
+    }
+  },
+  "firestore": {
+    "system/config": {
+      "schema": "SystemConfig",
+      "description": "Global app configuration"
+    },
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Public profile data for users"
+    },
+    "usernames/{username}": {
+      "schema": "UsernameClaim",
+      "description": "Collection of unique usernames"
+    },
+    "teams/{teamId}": {
+      "schema": "Team",
+      "description": "Esports teams"
+    },
+    "memberships/{membershipId}": {
+      "schema": "Membership",
+      "description": "Mapping of users to teams"
+    },
+    "follows/{followId}": {
+      "schema": "Follow",
+      "description": "User team followers"
+    },
+    "reports/{reportId}": {
+      "schema": "Report",
+      "description": "User behavior reports"
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Whitelist of admin users"
+    },
+    "tournaments/{tournamentId}": {
+      "schema": "Tournament",
+      "description": "Available tournaments"
+    },
+    "tournament_participants/{participantId}": {
+      "schema": "TournamentParticipant",
+      "description": "Tournament participants registration"
+    }
+  }
+}

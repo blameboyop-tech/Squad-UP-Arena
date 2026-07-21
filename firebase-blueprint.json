@@ -1,5 +1,17 @@
 {
   "entities": {
+    "Endorsement": {
+      "title": "Endorsement",
+      "description": "User endorsement for specific qualities",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "category": { "type": "string", "enum": ["Clutch Player", "Team Leader", "Great Communicator"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "category", "timestamp"]
+    },
     "User": {
       "title": "User",
       "description": "User profile information",
@@ -12,7 +24,8 @@
         "ingameName": { "type": "string" },
         "preferredGame": { "type": "string", "enum": ["freefire", "bgmi"] },
         "favoriteGame": { "type": "string" },
-        "role": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "moderator", "admin", "verified_organizer", "organizer"] },
+        "gameplayRole": { "type": "string" },
         "recentMatches": {
           "type": "array",
           "items": {
@@ -31,6 +44,7 @@
         "onboardingStep": { "type": "integer" },
         "bio": { "type": "string" },
         "avatar": { "type": "string" },
+        "profileLogo": { "type": "string" },
         "tags": { "type": "array", "items": { "type": "string" } },
         "coins": { "type": "number" },
         "pinkDiamonds": { "type": "number" },
@@ -54,9 +68,46 @@
         "isBanned": { "type": "boolean" },
         "isRestricted": { "type": "boolean" },
         "email": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "purchasedLogos": { "type": "array", "items": { "type": "string" } },
+        "fcmToken": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "endorsementCounts": {
+          "type": "object",
+          "properties": {
+            "Clutch Player": { "type": "number" },
+            "Team Leader": { "type": "number" },
+            "Great Communicator": { "type": "number" }
+          }
+        }
       },
       "required": ["name", "email", "fullName", "ingameName", "preferredGame", "age"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Global app announcements",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "message", "timestamp", "authorId"]
+    },
+    "Logo": {
+      "title": "Logo",
+      "description": "App library logo definition",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "currencyType": { "type": "string", "enum": ["gold", "pink", "blue"] },
+        "priceAmount": { "type": "number" },
+        "isAnimated": { "type": "boolean" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name", "imageUrl", "isPremium", "isActive"]
     },
     "Admin": {
       "title": "Admin",
@@ -180,12 +231,151 @@
         "maintenanceMode": { "type": "boolean" }
       },
       "required": ["latestVersionCode", "latestVersionName", "updateUrl"]
+    },
+    "SystemLog": {
+      "title": "SystemLog",
+      "description": "App error logs and stability reports",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "feature": { "type": "string" },
+        "message": { "type": "string" },
+        "suggestion": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "severity": { "type": "string" }
+      },
+      "required": ["type", "feature", "message", "timestamp"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in a chat context",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["text", "image", "system"] }
+      },
+      "required": ["text", "senderId", "senderName", "timestamp"]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "Metadata for a private chat conversation",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastSenderId": { "type": "string" },
+        "lastTimestamp": { "type": "string", "format": "date-time" },
+        "unreadCount": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "required": ["participants", "lastTimestamp"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "A single entry in a leaderboard",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "score": { "type": "number" },
+        "game": { "type": "string", "enum": ["freefire", "bgmi", "global"] },
+        "category": { "type": "string", "enum": ["kills", "wins", "points"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "score", "game", "category", "updatedAt"]
+    },
+    "EarnTask": {
+      "title": "EarnTask",
+      "description": "A task configured by admin for users to earn rewards",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "rewardType": { "type": "string", "enum": ["coins", "pinkDiamonds", "blueDiamonds"] },
+        "rewardAmount": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "rewardType", "rewardAmount", "isActive", "createdAt"]
+    },
+    "UserTaskProgress": {
+      "title": "UserTaskProgress",
+      "description": "Tracks a user's completion of a specific task",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "taskId", "completedAt"]
+    },
+    "AIComplaint": {
+      "title": "AIComplaint",
+      "description": "Complaint logged by AI assistant",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "category": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["new", "resolved", "ignored"] }
+      },
+      "required": ["userId", "message", "timestamp", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Individual user notification",
+      "type": "object",
+      "properties": {
+        "notificationId": { "type": "string" },
+        "type": { 
+          "type": "string", 
+          "enum": [
+            "Friend Request",
+            "Team Invitation",
+            "Team Join Request",
+            "Tournament Registration",
+            "Tournament Approved",
+            "Tournament Rejected",
+            "Tournament Starting Soon",
+            "Match Result Submitted",
+            "Role Changed",
+            "Warning Received",
+            "Suspension Notice",
+            "General Announcement"
+          ] 
+        },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" },
+        "senderId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "actionUrl": { "type": "string" }
+      },
+      "required": ["type", "title", "message", "createdAt", "read"]
     }
   },
   "firestore": {
+    "users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "In-app real-time notifications for user"
+    },
     "system/config": {
       "schema": "SystemConfig",
       "description": "Global app configuration"
+    },
+    "system_logs/{logId}": {
+      "schema": "SystemLog",
+      "description": "Automated system stability logs"
     },
     "users/{userId}": {
       "schema": "User",
@@ -222,6 +412,46 @@
     "tournament_participants/{participantId}": {
       "schema": "TournamentParticipant",
       "description": "Tournament participants registration"
+    },
+    "logos/{logoId}": {
+      "schema": "Logo",
+      "description": "App library of selectable logos"
+    },
+    "announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Global announcements and notifications history"
+    },
+    "endorsements/{endorsementId}": {
+      "schema": "Endorsement",
+      "description": "User quality endorsements"
+    },
+    "global_chats/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Public global chat messages"
+    },
+    "chats/{chatId}": {
+      "schema": "ChatThread",
+      "description": "Private conversation threads"
+    },
+    "chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a private thread"
+    },
+    "leaderboards/{entryId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Global and game-specific leaderboards"
+    },
+    "tasks/{taskId}": {
+      "schema": "EarnTask",
+      "description": "Admin defined tasks for rewards"
+    },
+    "user_tasks/{userTaskId}": {
+      "schema": "UserTaskProgress",
+      "description": "User task completion records"
+    },
+    "complaints/{complaintId}": {
+      "schema": "AIComplaint",
+      "description": "Complaints logged via AI Support"
     }
   }
 }

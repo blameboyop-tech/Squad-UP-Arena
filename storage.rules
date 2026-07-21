@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow reading by anyone (Public access for app assets)
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Admin-only folders for system assets
+    // Restricted to users in the /admins/ collection in Firestore
+    match /admin/{folder}/{allPaths=**} {
+      allow write: if request.auth != null && 
+        firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+    
+    // User Avatars (Self-management)
+    match /avatars/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Match Results Screenshots (User uploads standing screenshot)
+    match /match_results/{tournamentId}/{fileName} {
+      allow write: if request.auth != null && fileName.startsWith(request.auth.uid);
+    }
+  }
+}

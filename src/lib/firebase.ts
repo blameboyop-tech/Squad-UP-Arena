@@ -1,11 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getMessaging } from 'firebase/messaging';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+export const storage = getStorage(app);
 
 // Critical connection test
 async function testConnection() {
@@ -45,7 +49,7 @@ export function handleFirestoreError(error: any, operationType: FirestoreErrorIn
       userId: user?.uid || 'anonymous',
       email: user?.email || '',
       emailVerified: user?.emailVerified || false,
-      isAnonymous: user?.isAnonymous || true,
+      isAnonymous: user?.isAnonymous ?? true,
       providerInfo: user?.providerData.map(p => ({
         providerId: p.providerId,
         displayName: p.displayName || '',

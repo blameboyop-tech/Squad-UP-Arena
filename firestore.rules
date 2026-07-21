@@ -2,28 +2,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // 0. Default Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // --- Helpers ---
-    
+    // --- GLOBAL HELPERS ---
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == "blameboyop@gmail.com"
+        request.auth.uid == "c7zQYjPfidMMBWMghtfudfcmdaw1" ||
+        request.auth.token.email == "blameboyop@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
-    
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "blameboyop@gmail.com" ||
+        request.auth.token.email == "owner1@gmail.com" ||
+        request.auth.token.email == "owner2@gmail.com"
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -31,207 +34,211 @@ service cloud.firestore {
     function incoming() {
       return request.resource.data;
     }
-    
+
     function existing() {
       return resource.data;
     }
 
-    // --- Entity Validations ---
-
-    function isValidUser(data) {
-      // Basic type checks for required fields if they exist
-      return (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 50))
-          && (!('username' in data) || (data.username is string && data.username.size() >= 3 && data.username.size() <= 30 && data.username.matches('^[a-zA-Z0-9_]+$')))
-          && (!('fullName' in data) || (data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100))
-          && (!('ingameName' in data) || (data.ingameName is string && data.ingameName.size() > 0 && data.ingameName.size() <= 50))
-          && (!('preferredGame' in data) || (data.preferredGame in ['freefire', 'bgmi']))
-          && (!('age' in data) || (data.age is number && data.age >= 5 && data.age <= 120))
-          && (!('experience' in data) || (data.experience is string))
-          && (!('profileCompleted' in data) || (data.profileCompleted is bool))
-          && (!('onboardingStep' in data) || (data.onboardingStep is int))
-          && (!('teamId' in data) || (data.teamId == null || data.teamId is string))
-          && (!('email' in data) || (data.email is string && data.email.size() > 0 && data.email.size() <= 100))
-          && (!('numericId' in data) || (data.numericId is int))
-          && (!('bio' in data) || (data.bio is string && data.bio.size() <= 1000))
-          && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 1000))
-          && (!('tags' in data) || (data.tags is list && data.tags.size() <= 20))
-          && (!('coins' in data) || (data.coins is number))
-          && (!('pinkDiamonds' in data) || (data.pinkDiamonds is number))
-          && (!('blueDiamonds' in data) || (data.blueDiamonds is number))
-          && (!('playerStatus' in data) || (data.playerStatus in ['available', 'in-team', 'busy']))
-          && (!('matches' in data) || (data.matches is number))
-          && (!('wins' in data) || (data.wins is number))
-          && (!('kdRatio' in data) || (data.kdRatio is number))
-          && (!('headshotPercentage' in data) || (data.headshotPercentage is number))
-          && (!('stats' in data) || (data.stats is map 
-              && data.stats.get('kdRatio', 0) is number 
-              && data.stats.get('kills', 0) is number 
-              && data.stats.get('matchesPlayed', 0) is number 
-              && data.stats.get('wins', 0) is number))
-          && (!('lastStatsUpdatedAt' in data) || (data.lastStatsUpdatedAt is timestamp))
-          && (!('lastUpdatedBy' in data) || (data.lastUpdatedBy is string))
-          && (!('isBanned' in data) || (data.isBanned is bool))
-          && (!('isRestricted' in data) || (data.isRestricted is bool))
-          && (!('role' in data) || (data.role is string && data.role.size() <= 30))
-          && (!('favoriteGame' in data) || (data.favoriteGame is string && data.favoriteGame.size() <= 50))
-          && (!('recentMatches' in data) || (data.recentMatches is list && data.recentMatches.size() <= 20));
-    }
-
-    function isAgeRestricted(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.age < 13;
-    }
-
-    // --- Admin Action Helpers ---
-    function isStatsUpdate(data) {
-      return data.diff(existing()).affectedKeys().hasAny(['stats', 'lastStatsUpdatedAt', 'lastUpdatedBy', 'matches', 'wins', 'kdRatio']);
-    }
-
-    function isValidTeam(data) {
-      return data.keys().hasAll(['name', 'game', 'leaderId'])
-          && data.name is string && data.name.size() > 0 && data.name.size() <= 50
-          && data.game in ['freefire', 'bgmi']
-          && data.leaderId == request.auth.uid
-          && !isAgeRestricted(request.auth.uid)
-          && (!('logo' in data) || (data.logo is string && data.logo.size() <= 500))
-          && (!('bio' in data) || (data.bio is string && data.bio.size() <= 1000))
-          && (!('tags' in data) || (data.tags is list && data.tags.size() <= 10));
-    }
-
-    function isValidMembership(data) {
-      return data.keys().hasAll(['userId', 'teamId', 'role'])
-          && data.userId == request.auth.uid
-          && data.role in ['leader', 'member']
-          && isValidId(data.teamId);
-    }
-
-    function isValidReport(data) {
-      return data.keys().hasAll(['reporterId', 'reportedId', 'reasons', 'timestamp'])
-          && data.reporterId == request.auth.uid
-          && data.reportedId != request.auth.uid
-          && data.reasons is list && data.reasons.size() > 0 && data.reasons.size() <= 5
-          && data.timestamp == request.time;
-    }
-
-    function isValidTournament(data) {
-      return data.keys().hasAll(['title', 'prizePool', 'entryFee', 'matchType', 'map', 'startTime', 'maxPlayers', 'game'])
-          && data.title is string && data.title.size() > 0 && data.title.size() <= 100
-          && data.prizePool is number
-          && data.entryFee is number
-          && data.matchType in ['Solo', 'Duo', 'Squad']
-          && data.map is string && data.map.size() > 0
-          && data.maxPlayers is number && data.maxPlayers > 0
-          && data.game in ['freefire', 'bgmi']
-          && (!('totalSlots' in data) || (data.totalSlots is number))
-          && (!('filledSlots' in data) || (data.filledSlots is number))
-          && (!('players' in data) || (data.players is list))
-          && (!('imageUrl' in data) || (data.imageUrl is string))
-          && (!('descriptionShort' in data) || (data.descriptionShort is string))
-          && (!('descriptionFull' in data) || (data.descriptionFull is string));
-    }
-
-    function isJoiningTournament(data) {
-      // 1. Auth check
-      return isSignedIn()
-          // 2. State & Integrity check
-          && data.diff(existing()).affectedKeys().hasOnly(['filledSlots', 'players', 'currentPlayers'])
-          && data.filledSlots == (existing().get('filledSlots', 0) + 1)
-          && data.players.size() == (existing().get('players', []).size() + 1)
-          && data.players.hasAll(existing().get('players', []))
-          && request.auth.uid in data.players
-          && !(request.auth.uid in existing().get('players', []))
-          // 3. Relational check
-          && (existing().get('filledSlots', 0) < existing().get('totalSlots', 50))
-          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.profileCompleted == true;
-    }
-
-    function isValidParticipant(data) {
-      return data.keys().hasAll(['tournamentId', 'userId', 'inGameName', 'level', 'uid', 'joinedAt'])
-          && data.userId == request.auth.uid
-          && data.inGameName is string && data.inGameName.size() > 0
-          && data.level is number && data.level > 0
-          && data.uid is string && data.uid.size() > 0
-          && data.joinedAt == request.time;
-    }
-
-    // --- Collection Rules ---
-
+    // --- USERS ---
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn(); 
-      allow create: if isOwner(userId) && isValidUser(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming())
-                   && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['name', 'username', 'fullName', 'ingameName', 'preferredGame', 'favoriteGame', 'role', 'age', 'experience', 'profileCompleted', 'onboardingStep', 'teamId', 'bio', 'avatar', 'tags', 'playerStatus', 'coins', 'pinkDiamonds', 'blueDiamonds', 'updatedAt', 'headshotPercentage', 'matches', 'wins', 'kdRatio', 'recentMatches']));
-    }
-
-    match /usernames/{username} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && incoming().uid == request.auth.uid;
-      allow delete: if isSignedIn() && existing().uid == request.auth.uid;
-    }
-
-    match /admins/{adminId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only manageable via console or special triggers
-    }
-
-    match /tournaments/{tournamentId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isAdmin() && isValidTournament(incoming()) && isValidId(tournamentId);
-      allow update: if (isAdmin() && isValidTournament(incoming())) || (isValidId(tournamentId) && isJoiningTournament(incoming()));
-    }
-
-    match /tournament_participants/{participantId} {
-      allow read: if isSignedIn();
-      // participantId should be user.uid + "_" + tournamentId
-      allow create: if isSignedIn() 
-                   && isValidId(participantId)
-                   && participantId == request.auth.uid + "_" + incoming().tournamentId
-                   && isValidParticipant(incoming())
-                   && exists(/databases/$(database)/documents/tournaments/$(incoming().tournamentId));
-    }
-
-    match /teams/{teamId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(teamId) && isValidTeam(incoming());
-      allow update: if isSignedIn() && (
-        existing().leaderId == request.auth.uid || 
-        // Allow members to trigger some updates if needed? 
-        // For now, only leader.
-        false
-      ) && isValidTeam(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'logo', 'game', 'tags', 'bio']);
-      allow delete: if isSignedIn() && existing().leaderId == request.auth.uid;
-    }
-
-    match /memberships/{membershipId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(membershipId) && isValidMembership(incoming())
-                   && exists(/databases/$(database)/documents/teams/$(incoming().teamId));
-      allow delete: if isSignedIn() && (
-        existing().userId == request.auth.uid || 
-        get(/databases/$(database)/documents/teams/$(existing().teamId)).data.leaderId == request.auth.uid
+      allow get, list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && (
+        !('role' in incoming()) || incoming().role == 'user'
       );
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && (
+        // Prevent self-elevating coins/diamonds, banning self, or modifying role
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'bio', 'avatar', 'tags', 'preferredGame', 
+          'favoriteGame', 'matches', 'wins', 'kdRatio', 'headshotPercentage', 
+          'updatedAt', 'ingameName', 'fullName', 'age', 'experience', 
+          'profileCompleted', 'onboardingStep', 'fcmToken', 'purchasedLogos',
+          'playerStatus', 'stats', 'lastStatsUpdatedAt', 'hiddenBadges', 'revokedBadges',
+          'gameplayRole'
+        ])
+      )) || (isAdmin() && (
+        // Any admin can update user if role is unchanged
+        incoming().get('role', 'user') == existing().get('role', 'user') || (
+          // Only Super Admin can change the role, target is not another Super Admin, and new role is supported
+          isSuperAdmin() &&
+          !(existing().get('email', '') in ["blameboyop@gmail.com", "owner1@gmail.com", "owner2@gmail.com"]) &&
+          incoming().get('role', 'user') in ['user', 'moderator', 'admin', 'verified_organizer', 'organizer']
+        )
+      ));
+
+      function isValidUser(data) {
+        return data.name is string && data.name.size() <= 100 &&
+               (data.bio == null || (data.bio is string && data.bio.size() <= 500)) &&
+               (data.avatar == null || (data.avatar is string && data.avatar.size() <= 1000));
+      }
+
+      match /notifications/{notificationId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
-    match /follows/{followId} {
-      allow read: if isSignedIn();
+    // --- CHATS & MESSAGES ---
+    match /chats/{chatId} {
+      // allow get even if document doesn't exist so client can check existence
+      allow get: if isSignedIn() && (resource == null || request.auth.uid in resource.data.participants || isAdmin());
+      allow list: if isSignedIn() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid in incoming().participants) && isValidChatThread(incoming());
+      allow update: if isSignedIn() && (request.auth.uid in existing().participants || isAdmin()) && isValidChatThread(incoming());
+      
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
+        allow create: if isSignedIn() && 
+                      (incoming().senderId == request.auth.uid || (incoming().senderId == 'support_ai' && chatId.matches('^support_ai_.*'))) &&
+                      isValidMessage(incoming()) &&
+                      (getAfter(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
+      }
+    }
+
+    function isValidChatThread(data) {
+      return data.participants is list && data.participants.size() >= 1 &&
+             data.lastTimestamp != null &&
+             (data.lastMessage == null || (data.lastMessage is string && data.lastMessage.size() <= 5000)) &&
+             (data.lastSenderId == null || data.lastSenderId is string) &&
+             (data.unreadCount == null || data.unreadCount is map);
+    }
+
+    function isValidMessage(data) {
+      return data.text is string && data.text.size() <= 5000 &&
+             data.senderId is string &&
+             data.senderName is string &&
+             data.timestamp != null &&
+             (data.type == null || data.type in ['text', 'image', 'system']);
+    }
+
+    // --- TEAMS ---
+    match /teams/{teamId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().leaderId == request.auth.uid;
+      allow update: if (isSignedIn() && (existing().leaderId == request.auth.uid || isAdmin()));
+    }
+
+    // --- MEMBERSHIPS & FOLLOWS ---
+    match /memberships/{id} {
+      allow get, list: if isSignedIn(); 
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
-    match /reports/{reportId} {
-      allow create: if isSignedIn() && isValidReport(incoming());
-      allow read: if isAdmin() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+    match /follows/{id} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
-    match /metadata/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Allow new users to update numeric ID counter (ideally should be more restricted but needed for client-side transaction)
+    match /user_follows/{id} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().followerId == request.auth.uid;
+      allow delete: if isSignedIn() && (existing().followerId == request.auth.uid || isAdmin());
     }
 
-    match /system/config {
-      allow read: if true; // Everyone can check for updates
+    // --- SYSTEM LOGS ---
+    match /system_logs/{logId} {
+      allow create: if true;
+      allow get, list: if isAdmin();
+    }
+
+    // --- MATCH SUBMISSIONS ---
+    match /match_submissions/{submissionId} {
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --- TOURNAMENTS ---
+    match /tournaments/{tourId} {
+      allow get, list: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    match /tournament_participants/{partId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --- TASKS ---
+    match /tasks/{taskId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /user_tasks/{utId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && exists(/databases/$(database)/documents/tasks/$(incoming().taskId));
+    }
+
+    // --- ENDORSEMENTS ---
+    match /endorsements/{endId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+    }
+
+    // --- SYSTEM CONFIG ---
+    match /system/config {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- ADMINS ---
+    match /admins/{adminId} {
+      allow get, list: if isSignedIn();
+      allow write: if false; 
+    }
+
+    // --- MISC ---
+    match /reports/{reportId} {
+      allow create: if isSignedIn() && incoming().reporterId == request.auth.uid;
+      allow get, list: if isAdmin() || (isSignedIn() && resource.data.reportedId == request.auth.uid);
+    }
+
+    match /announcements/{id} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /global_chats/{id} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+    }
+    
+    match /usernames/{id} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && incoming().uid == request.auth.uid;
+    }
+
+    match /logos/{id} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /shop_items/{id} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+
+    match /banners/{id} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /leaderboards/{id} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- COMPLAINTS ---
+    match /complaints/{id} {
+      allow create: if isSignedIn(); // Users can log complaints (via AI)
+      allow get, list: if isAdmin();
+    }
+
+    // --- DEFAULT DENY (MOVED TO BOTTOM) ---
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
